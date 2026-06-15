@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { collection, query, where, getDocs, limit, orderBy } from 'firebase/firestore';
 import { db, isFirebaseDemo } from '../firebase';
 import { Search, Loader2, ChevronDown } from 'lucide-react';
+import { maharashtraColleges } from '../data/maharashtra_dte_colleges';
 
 export interface College {
   id?: string;
@@ -43,10 +44,14 @@ export default function SearchableCollegeDropdown({ value, onChange, error }: Se
             const snap = await getDocs(q);
             if (!snap.empty) {
               setSelectedCollege(snap.docs[0].data() as College);
+              return;
             }
           } catch (err) {
-            console.error('Failed to load selected college', err);
+            console.error('Failed to load selected college from Firestore, trying fallback', err);
           }
+          
+          const found = maharashtraColleges.find(c => String(c.dteCode) === String(value));
+          if (found) setSelectedCollege(found);
         }
       }
     };
@@ -78,40 +83,51 @@ export default function SearchableCollegeDropdown({ value, onChange, error }: Se
           ).slice(0, 10);
           setResults(filtered);
         } else {
-          // Firestore prefix queries
-          // We can do two queries: one for DTE code (exact or prefix) and one for Name prefix.
-          // Since Firestore limits inequality filters, we will just search by name prefix or exact DTE.
-          // For a fully optimized autocomplete, a service like Algolia or Typesense is best, 
-          // but we will simulate it with Firestore startAt / endAt.
-          let q;
-          if (!searchTerm) {
-            q = query(collection(db, 'colleges'), limit(10));
-          } else if (!isNaN(Number(searchTerm))) {
-            // Searching by DTE Code (Prefix)
-            q = query(
-              collection(db, 'colleges'), 
-              where('dteCode', '>=', searchTerm),
-              where('dteCode', '<=', searchTerm + '\uf8ff'),
-              limit(10)
-            );
-          } else {
-            // Title case formatting for basic Firestore prefix search
-            const capitalizedSearch = searchTerm.charAt(0).toUpperCase() + searchTerm.slice(1);
-            q = query(
-              collection(db, 'colleges'), 
-              where('name', '>=', capitalizedSearch),
-              where('name', '<=', capitalizedSearch + '\uf8ff'),
-              limit(10)
-            );
+          let list: College[] = [];
+          try {
+            let q;
+            if (!searchTerm) {
+              q = query(collection(db, 'colleges'), limit(10));
+            } else if (!isNaN(Number(searchTerm))) {
+              // Searching by DTE Code (Prefix)
+              q = query(
+                collection(db, 'colleges'), 
+                where('dteCode', '>=', searchTerm),
+                where('dteCode', '<=', searchTerm + '\uf8ff'),
+                limit(10)
+              );
+            } else {
+              // Title case formatting for basic Firestore prefix search
+              const capitalizedSearch = searchTerm.charAt(0).toUpperCase() + searchTerm.slice(1);
+              q = query(
+                collection(db, 'colleges'), 
+                where('name', '>=', capitalizedSearch),
+                where('name', '<=', capitalizedSearch + '\uf8ff'),
+                limit(10)
+              );
+            }
+            
+            const snap = await getDocs(q);
+            snap.forEach(doc => list.push(doc.data() as College));
+          } catch (firebaseErr) {
+            console.error("Firestore query failed, using fallback dataset:", firebaseErr);
           }
           
-          const snap = await getDocs(q);
-          const list: College[] = [];
-          snap.forEach(doc => list.push(doc.data() as College));
+          // Fallback to embedded dataset if Firestore is empty, failed, or substring search failed
+          if (list.length === 0) {
+            const lowerTerm = searchTerm.toLowerCase();
+            list = maharashtraColleges.filter(c => {
+              if (!c) return false;
+              const nMatch = c.name ? c.name.toLowerCase().includes(lowerTerm) : false;
+              const dMatch = c.dteCode ? String(c.dteCode).includes(searchTerm) : false;
+              return nMatch || dMatch;
+            }).slice(0, 10);
+          }
+          
           setResults(list);
         }
       } catch (err) {
-        console.error(err);
+        console.error("Critical error in fetchResults:", err);
       } finally {
         setLoading(false);
       }

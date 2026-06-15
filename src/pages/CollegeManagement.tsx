@@ -48,6 +48,36 @@ export default function CollegeManagement() {
   const [exams, setExams] = useState<{id: string, name: string}[]>([]);
   const [examName, setExamName] = useState('');
   
+  // Temporary Admin Tool States
+  const [adminStats, setAdminStats] = useState({ total: 0, has5545: false, lastImport: 'Checking...' });
+  const [checkingStats, setCheckingStats] = useState(false);
+
+  const fetchAdminStats = async () => {
+    if (isFirebaseDemo) return;
+    setCheckingStats(true);
+    try {
+      // Get total count
+      const snap = await getDocs(collection(db, 'colleges'));
+      
+      let has5545 = false;
+      let lastImport = 'Never';
+      
+      snap.forEach(d => {
+         if (d.id === '5545') {
+            has5545 = true;
+            if (d.data().createdAt) lastImport = new Date(d.data().createdAt).toLocaleString();
+         }
+      });
+      
+      setAdminStats({ total: snap.size, has5545, lastImport });
+    } catch (e) {
+      console.error(e);
+      setAdminStats({ total: 0, has5545: false, lastImport: 'Error' });
+    } finally {
+      setCheckingStats(false);
+    }
+  };
+
   const defaultExams = ['UPSC', 'MPSC', 'SSC', 'Banking', 'Railway', 'Defence'];
 
   const fetchCollegesFirstPage = async () => {
@@ -391,6 +421,44 @@ export default function CollegeManagement() {
       <main className="p-8">
         {error && <div className="mb-6 rounded-xl bg-red-50 p-4 text-sm font-semibold text-red-600">{error}</div>}
         {success && <div className="mb-6 rounded-xl bg-green-50 p-4 text-sm font-semibold text-green-600">{success}</div>}
+
+        {!isFirebaseDemo && (
+          <div className="mb-8 rounded-2xl border border-yellow-200 bg-yellow-50 p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-bold text-yellow-900 text-lg flex items-center gap-2">
+                Temporary Verification Tool (Production Firestore)
+              </h3>
+              <button 
+                onClick={fetchAdminStats}
+                disabled={checkingStats}
+                className="px-4 py-2 bg-yellow-600 text-white rounded-lg text-sm font-bold shadow hover:bg-yellow-700"
+              >
+                {checkingStats ? 'Scanning...' : 'Scan Database'}
+              </button>
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+               <div className="bg-white p-4 rounded-xl border border-yellow-200 shadow-sm">
+                 <p className="text-xs font-bold text-slate-500 uppercase">Total Firestore Records</p>
+                 <p className="text-2xl font-black text-slate-800">{adminStats.total}</p>
+               </div>
+               <div className="bg-white p-4 rounded-xl border border-yellow-200 shadow-sm">
+                 <p className="text-xs font-bold text-slate-500 uppercase">DTE 5545 Exists?</p>
+                 <p className={`text-2xl font-black ${adminStats.has5545 ? 'text-green-600' : 'text-red-600'}`}>
+                   {adminStats.has5545 ? 'YES' : 'NO'}
+                 </p>
+               </div>
+               <div className="bg-white p-4 rounded-xl border border-yellow-200 shadow-sm">
+                 <p className="text-xs font-bold text-slate-500 uppercase">5545 Import Date</p>
+                 <p className="text-sm font-bold text-slate-800 mt-2">{adminStats.lastImport}</p>
+               </div>
+            </div>
+            {adminStats.total === 0 && !checkingStats && (
+               <p className="text-sm text-red-600 mt-4 font-bold">
+                 Warning: Production database is empty. Please click "Seed Production Dataset" below.
+               </p>
+            )}
+          </div>
+        )}
 
         <div className="mb-8 rounded-2xl border border-blue-200 bg-blue-50/50 p-6 flex flex-col md:flex-row justify-between items-center gap-4">
           <div>
