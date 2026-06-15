@@ -1,0 +1,47 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Functions for role checking
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    function isTeacher() {
+      return isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher';
+    }
+
+    // Users Collection
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      // User can update their own profile, Admins can do anything
+      allow update: if request.auth.uid == userId || isAdmin();
+      allow create, delete: if isAdmin();
+    }
+
+    // Resources Collection
+    match /resources/{resourceId} {
+      allow read: if isAuthenticated();
+      // Teachers can upload, but initially it must be pending
+      allow create: if isTeacher() || isAdmin();
+      allow update, delete: if isAdmin() || (isTeacher() && resourceData().uploadedBy == request.auth.uid);
+    }
+
+    // Notifications Collection
+    match /notifications/{notifId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // System Settings / Colleges / Branches
+    match /{collection}/{document=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+  }
+}
