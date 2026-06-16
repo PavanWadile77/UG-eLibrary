@@ -12,6 +12,7 @@ import Onboarding from './pages/Onboarding';
 import StudentLibrary from './pages/StudentLibrary';
 import CompetitiveExams from './pages/CompetitiveExams';
 import TeacherUpload from './pages/TeacherUpload';
+import TeacherMyUploads from './pages/TeacherMyUploads';
 import ProfileSettings from './pages/ProfileSettings';
 import CollegeManagement from './pages/CollegeManagement';
 import ContentManagement from './pages/ContentManagement';
@@ -154,6 +155,14 @@ export default function App() {
           element={
             <ProtectedLayout requireRole={['teacher']}>
               <TeacherUpload />
+            </ProtectedLayout>
+          } 
+        />
+        <Route 
+          path="/my-uploads" 
+          element={
+            <ProtectedLayout requireRole={['teacher']}>
+              <TeacherMyUploads />
             </ProtectedLayout>
           } 
         />

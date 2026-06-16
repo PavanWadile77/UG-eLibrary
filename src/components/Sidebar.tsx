@@ -23,6 +23,7 @@ export default function Sidebar({ userProfile }: { userProfile?: any }) {
       return [
         { text: 'Teacher Dashboard', icon: LayoutDashboard, path: '/' },
         { text: 'Upload Materials', icon: FileText, path: '/upload' },
+        { text: 'My Uploads', icon: FolderOpen, path: '/my-uploads' },
         { text: 'My Classes', icon: Users, path: '/students' },
         { text: 'Profile Settings', icon: Settings, path: '/profile' },
       ];

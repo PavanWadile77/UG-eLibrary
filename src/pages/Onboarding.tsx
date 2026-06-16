@@ -33,7 +33,7 @@ export default function Onboarding() {
     setError('');
     
     try {
-      const user = auth.currentUser;
+      const user = auth?.currentUser;
       if (!user && !isFirebaseDemo) {
         throw new Error('No authenticated user found');
       }
@@ -54,13 +54,22 @@ export default function Onboarding() {
         createdAt: new Date().toISOString()
       };
 
+      console.log('before save');
       if (isFirebaseDemo) {
         localStorage.setItem('demo_user_profile', JSON.stringify(profileData));
+        console.log('after localStorage save');
         await new Promise(resolve => setTimeout(resolve, 800));
-        window.location.href = '/'; 
+        console.log('before navigate');
+        navigate('/');
+        window.location.reload();
+        console.log('after navigate');
       } else {
         await setDoc(doc(db, 'users', uid), profileData);
-        window.location.href = '/';
+        console.log('after Firestore save');
+        console.log('before navigate');
+        navigate('/');
+        window.location.reload();
+        console.log('after navigate');
       }
     } catch (err: any) {
       console.error(err);

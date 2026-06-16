@@ -14,20 +14,20 @@
     ],
     "headers": [
       {
+        "source": "**",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, no-store, must-revalidate"
+          }
+        ]
+      },
+      {
         "source": "**/*.@(js|css|svg|png|jpg|jpeg)",
         "headers": [
           {
             "key": "Cache-Control",
             "value": "public, max-age=31536000"
-          }
-        ]
-      },
-      {
-        "source": "**/*.@(html)",
-        "headers": [
-          {
-            "key": "Cache-Control",
-            "value": "no-cache, no-store, must-revalidate"
           }
         ]
       }

@@ -39,7 +39,7 @@ export default function Dashboard() {
           const stored = localStorage.getItem('demo_user_profile');
           if (stored) profile = JSON.parse(stored);
         } else {
-          const u = auth.currentUser;
+          const u = auth?.currentUser;
           if (u) {
             const snap = await getDocs(query(collection(db, 'users'), where('userId', '==', u.uid)));
             if (!snap.empty) profile = snap.docs[0].data();
@@ -75,6 +75,32 @@ export default function Dashboard() {
             const collegesSnap = await getDocs(collection(db, 'colleges'));
             setStats(s => ({ ...s, collegesCount: collegesSnap.size }));
           }
+        } else if (profile?.role === 'teacher') {
+          if (isFirebaseDemo) {
+            const filesStored = localStorage.getItem('demo_resources');
+            const filesList = filesStored ? JSON.parse(filesStored) : [];
+            const myFiles = filesList.filter((f: any) => f.uploadedBy === (auth?.currentUser?.uid || 'demo_admin'));
+            const activities: RecentActivity[] = myFiles.map((f: any) => ({
+              id: f.id, name: f.title || 'Untitled', uploadedBy: 'Me', timestamp: f.createdAt || new Date().toISOString(), type: f.type || 'Notes'
+            }));
+            activities.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+            setRecentActivities(activities.slice(0, 3));
+            setStats(s => ({ ...s, filesCount: myFiles.length }));
+          } else {
+            const u = auth?.currentUser;
+            if (u) {
+              const snap = await getDocs(query(collection(db, 'resources'), where('uploadedBy', '==', u.uid)));
+              const activities: RecentActivity[] = snap.docs.map(d => {
+                const data = d.data();
+                return {
+                  id: d.id, name: data.title || data.name || 'Untitled', uploadedBy: 'Me', timestamp: data.createdAt || new Date().toISOString(), type: data.type || 'Notes'
+                };
+              });
+              activities.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+              setRecentActivities(activities.slice(0, 3));
+              setStats(s => ({ ...s, filesCount: snap.size }));
+            }
+          }
         }
       } catch (err) {
         console.error("Dashboard loading failed:", err);
@@ -101,7 +127,7 @@ export default function Dashboard() {
   if (userProfile?.role === 'student') {
     return (
       <div className="flex-1 bg-slate-50 min-h-screen">
-        <Header title={`Welcome, ${userProfile.name.split(' ')[0]}!`} />
+        <Header title={`Welcome, ${userProfile.name ? userProfile.name.split(' ')[0] : 'Student'}!`} />
         <main className="p-8 max-w-7xl mx-auto">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <button onClick={() => navigate('/library')} className="text-left bg-gradient-to-br from-blue-600 to-indigo-700 p-8 rounded-3xl shadow-lg shadow-blue-500/30 text-white hover:scale-[1.02] transition-transform">
@@ -126,17 +152,46 @@ export default function Dashboard() {
   if (userProfile?.role === 'teacher') {
     return (
       <div className="flex-1 bg-slate-50 min-h-screen">
-        <Header title={`Welcome, Professor ${userProfile.name.split(' ')[0]}`} />
+        <Header title={`Welcome, Professor ${userProfile.name ? userProfile.name.split(' ')[0] : ''}`} />
         <main className="p-8 max-w-7xl mx-auto">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <button onClick={() => navigate('/content')} className="text-left bg-gradient-to-br from-purple-600 to-pink-600 p-8 rounded-3xl shadow-lg shadow-purple-500/30 text-white hover:scale-[1.02] transition-transform">
+            <button onClick={() => navigate('/upload')} className="text-left cursor-pointer bg-gradient-to-br from-purple-600 to-pink-600 p-8 rounded-3xl shadow-lg shadow-purple-500/30 text-white hover:scale-[1.02] transition-transform">
               <FileText className="h-12 w-12 text-purple-200 mb-6" />
               <h2 className="text-2xl font-bold mb-2">Upload Material</h2>
               <p className="text-purple-100 opacity-90">Share notes, PPTs, or videos with your students.</p>
             </button>
             <div className="bg-white border border-slate-200 p-8 rounded-3xl shadow-sm">
-              <h2 className="text-xl font-bold text-slate-800 mb-4">Your Recent Uploads</h2>
-              <p className="text-slate-500 text-sm">You haven't uploaded any materials yet.</p>
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-bold text-slate-800">Your Recent Uploads</h2>
+                <div className="bg-blue-50 px-3 py-1 rounded-full border border-blue-100">
+                  <span className="text-sm font-bold text-blue-700">Total: {stats.filesCount}</span>
+                </div>
+              </div>
+              
+              {recentActivities.length === 0 ? (
+                <div className="text-center py-6 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                  <p className="text-slate-500 text-sm">You haven't uploaded any materials yet.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {recentActivities.map(activity => (
+                    <div key={activity.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 hover:border-blue-100 transition-colors">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-white rounded-lg border border-slate-100 shadow-sm">
+                          <FileText className="h-5 w-5 text-blue-500" />
+                        </div>
+                        <div>
+                          <p className="font-bold text-slate-800 text-sm">{activity.name}</p>
+                          <p className="text-xs text-slate-500">{new Date(activity.timestamp).toLocaleDateString()}</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <button onClick={() => navigate('/my-uploads')} className="text-blue-600 hover:text-blue-800 text-sm font-semibold">View All</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </main>

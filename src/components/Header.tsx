@@ -8,7 +8,7 @@ interface HeaderProps {
 }
 
 export default function Header({ title }: HeaderProps) {
-  const user = auth.currentUser;
+  const user = auth?.currentUser;
   const navigate = useNavigate();
 
   return (

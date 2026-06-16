@@ -27,7 +27,24 @@ export default function SearchableCollegeDropdown({ value, onChange, error }: Se
   const [results, setResults] = useState<College[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedCollege, setSelectedCollege] = useState<College | null>(null);
+  const [debugSource, setDebugSource] = useState<string>('');
+  const [totalColleges, setTotalColleges] = useState<number>(0);
+  const [displayLimit, setDisplayLimit] = useState<number>(50);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const handleScroll = (e: React.UIEvent<HTMLUListElement>) => {
+    const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+    if (scrollHeight - scrollTop <= clientHeight + 10) {
+      if (results.length === displayLimit) {
+        setDisplayLimit(prev => prev + 50);
+      }
+    }
+  };
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value);
+    setDisplayLimit(50);
+  };
 
   useEffect(() => {
     // Load selected college details on mount if value exists but selectedCollege doesn't
@@ -73,59 +90,74 @@ export default function SearchableCollegeDropdown({ value, onChange, error }: Se
     const fetchResults = async () => {
       setLoading(true);
       try {
-        if (isFirebaseDemo) {
-          const stored = localStorage.getItem('demo_colleges');
-          const cols: College[] = stored ? JSON.parse(stored) : [];
-          const lowerTerm = searchTerm.toLowerCase();
-          const filtered = cols.filter(c => 
-            c.name.toLowerCase().includes(lowerTerm) || 
-            c.dteCode.includes(searchTerm)
-          ).slice(0, 10);
-          setResults(filtered);
-        } else {
-          let list: College[] = [];
+        let list: College[] = [];
+        let source = '';
+        let total = 0;
+        const lowerTerm = searchTerm.toLowerCase();
+
+        // 1. Try Firestore (only if not in demo mode)
+        if (!isFirebaseDemo) {
           try {
             let q;
             if (!searchTerm) {
-              q = query(collection(db, 'colleges'), limit(10));
+              q = query(collection(db, 'colleges'), limit(displayLimit));
             } else if (!isNaN(Number(searchTerm))) {
-              // Searching by DTE Code (Prefix)
               q = query(
                 collection(db, 'colleges'), 
                 where('dteCode', '>=', searchTerm),
                 where('dteCode', '<=', searchTerm + '\uf8ff'),
-                limit(10)
+                limit(displayLimit)
               );
             } else {
-              // Title case formatting for basic Firestore prefix search
               const capitalizedSearch = searchTerm.charAt(0).toUpperCase() + searchTerm.slice(1);
               q = query(
                 collection(db, 'colleges'), 
                 where('name', '>=', capitalizedSearch),
                 where('name', '<=', capitalizedSearch + '\uf8ff'),
-                limit(10)
+                limit(displayLimit)
               );
             }
-            
             const snap = await getDocs(q);
             snap.forEach(doc => list.push(doc.data() as College));
+            if (list.length > 0) {
+              source = 'Firestore';
+              total = list.length; // We don't know the full size easily
+            }
           } catch (firebaseErr) {
-            console.error("Firestore query failed, using fallback dataset:", firebaseErr);
+            console.error("Firestore query failed, trying fallback:", firebaseErr);
           }
-          
-          // Fallback to embedded dataset if Firestore is empty, failed, or substring search failed
-          if (list.length === 0) {
-            const lowerTerm = searchTerm.toLowerCase();
-            list = maharashtraColleges.filter(c => {
-              if (!c) return false;
-              const nMatch = c.name ? c.name.toLowerCase().includes(lowerTerm) : false;
-              const dMatch = c.dteCode ? String(c.dteCode).includes(searchTerm) : false;
-              return nMatch || dMatch;
-            }).slice(0, 10);
-          }
-          
-          setResults(list);
         }
+
+        // 2. Fallback to localStorage if Firestore failed/empty or in demo mode
+        if (list.length === 0) {
+          const stored = localStorage.getItem('demo_colleges');
+          const cols: College[] = stored ? JSON.parse(stored) : [];
+          if (cols.length > 0) {
+            source = 'Local Storage (demo_colleges)';
+            total = cols.length;
+            list = cols.filter(c => 
+              c.name.toLowerCase().includes(lowerTerm) || 
+              String(c.dteCode).includes(searchTerm)
+            ).slice(0, displayLimit);
+          }
+        }
+
+        // 3. Fallback to maharashtraColleges master dataset
+        if (list.length === 0) {
+          source = 'Master Dataset (maharashtraColleges)';
+          total = maharashtraColleges.length;
+          list = maharashtraColleges.filter(c => {
+            if (!c) return false;
+            const nMatch = c.name ? c.name.toLowerCase().includes(lowerTerm) : false;
+            const dMatch = c.dteCode ? String(c.dteCode).includes(searchTerm) : false;
+            return nMatch || dMatch;
+          }).slice(0, displayLimit);
+        }
+
+        setResults(list);
+        setDebugSource(source);
+        setTotalColleges(total);
+
       } catch (err) {
         console.error("Critical error in fetchResults:", err);
       } finally {
@@ -138,7 +170,7 @@ export default function SearchableCollegeDropdown({ value, onChange, error }: Se
     }, 300);
 
     return () => clearTimeout(delayDebounceFn);
-  }, [searchTerm, isOpen]);
+  }, [searchTerm, isOpen, displayLimit]);
 
   return (
     <div className="relative w-full" ref={dropdownRef}>
@@ -154,6 +186,14 @@ export default function SearchableCollegeDropdown({ value, onChange, error }: Se
       
       {error && <p className="text-xs text-red-500 mt-1 font-medium">{error}</p>}
 
+      {/* Temporary Debug Info */}
+      <div className="mt-2 text-xs text-slate-500 bg-slate-100 p-2 rounded-lg border border-slate-200">
+        <strong className="text-slate-700">Debug Info:</strong><br />
+        <span className="font-semibold">Source:</span> {debugSource || 'Pending...'}<br />
+        <span className="font-semibold">Total DB Size:</span> {totalColleges}<br />
+        <span className="font-semibold">Search Results:</span> {results.length}
+      </div>
+
       {isOpen && (
         <div className="absolute z-50 mt-2 w-full rounded-xl border border-slate-200 bg-white shadow-xl overflow-hidden">
           <div className="p-2 border-b border-slate-100 bg-slate-50 flex items-center gap-2">
@@ -164,12 +204,12 @@ export default function SearchableCollegeDropdown({ value, onChange, error }: Se
               className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
               placeholder="Type DTE Code or College Name..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={handleSearchChange}
             />
             {loading && <Loader2 className="h-4 w-4 text-blue-500 animate-spin" />}
           </div>
           
-          <ul className="max-h-60 overflow-y-auto py-1">
+          <ul className="max-h-60 overflow-y-auto py-1" onScroll={handleScroll}>
             {results.length === 0 && !loading ? (
               <li className="px-4 py-3 text-sm text-slate-500 text-center">No colleges found.</li>
             ) : (

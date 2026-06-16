@@ -10,6 +10,15 @@ export interface CollegeData {
 
 export const maharashtraColleges: CollegeData[] = [
   {
+    "dteCode": "5545",
+    "name": "SVKM's Institute of Technology, Dhule (Shirpur, Dahivad, EN-05545, 05545)",
+    "district": "Dhule",
+    "university": "NMU Jalgaon",
+    "courseTypes": "B.Tech",
+    "branches": "Computer Science, Information Technology, Mechanical, Civil",
+    "status": "Active"
+  },
+  {
     "dteCode": "6006",
     "name": "College of Engineering Pune (COEP)",
     "district": "Pune",

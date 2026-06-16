@@ -36,7 +36,7 @@ export default function ProfileSettings() {
         const stored = localStorage.getItem('demo_user_profile');
         if (stored) p = JSON.parse(stored);
       } else {
-        const u = auth.currentUser;
+        const u = auth?.currentUser;
         if (u) {
           const docSnap = await getDoc(doc(db, 'users', u.uid));
           if (docSnap.exists()) p = docSnap.data();
@@ -78,7 +78,7 @@ export default function ProfileSettings() {
         localStorage.setItem('demo_user_profile', JSON.stringify(p));
         setProfile(p);
       } else {
-        const u = auth.currentUser;
+        const u = auth?.currentUser;
         if (u) {
           await updateDoc(doc(db, 'users', u.uid), updatedData);
           setProfile({ ...profile, ...updatedData });

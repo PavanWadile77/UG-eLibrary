@@ -53,8 +53,6 @@ interface FileData {
 }
 
 export default function ContentManagement() {
-  const [activeTab, setActiveTab] = useState<'explorer' | 'approval'>('approval');
-  const [pendingFiles, setPendingFiles] = useState<FileData[]>([]);
   const [module, setModule] = useState<'btech' | 'upsc'>('btech');
   
   const [colleges, setColleges] = useState<College[]>([]);
@@ -64,6 +62,7 @@ export default function ContentManagement() {
   const [selectedBranch, setSelectedBranch] = useState('');
   const [selectedYear, setSelectedYear] = useState('First Year');
   const [selectedSubject, setSelectedSubject] = useState('Mathematics-I');
+  const [subjectsList, setSubjectsList] = useState<string[]>([]);
   
   const [selectedCategory, setSelectedCategory] = useState('Current Affairs');
 
@@ -131,6 +130,25 @@ export default function ContentManagement() {
     }
     loadSelectors();
   }, []);
+
+  useEffect(() => {
+    if (!selectedBranch || !selectedDte) return;
+    if (isFirebaseDemo) {
+      const stored = localStorage.getItem('demo_subjects');
+      const list = stored ? JSON.parse(stored) : [];
+      const filtered = list.filter((s: any) => s.branch === selectedBranch && s.collegeDte === selectedDte);
+      const uniqueNames = Array.from(new Set(filtered.map((s: any) => s.name))) as string[];
+      setSubjectsList(uniqueNames);
+      if (uniqueNames.length > 0 && !uniqueNames.includes(selectedSubject)) setSelectedSubject(uniqueNames[0]);
+    } else {
+      const q = query(collection(db, 'subjects'), where('branch', '==', selectedBranch), where('collegeDte', '==', selectedDte));
+      getDocs(q).then(snap => {
+        const uniqueNames = Array.from(new Set(snap.docs.map(doc => doc.data().name))) as string[];
+        setSubjectsList(uniqueNames);
+        if (uniqueNames.length > 0 && !uniqueNames.includes(selectedSubject)) setSelectedSubject(uniqueNames[0]);
+      });
+    }
+  }, [selectedBranch, selectedDte]);
 
   const loadDirectory = async () => {
     setLoading(true);
@@ -268,96 +286,9 @@ export default function ContentManagement() {
     }
   };
 
-  const loadPendingFiles = async () => {
-    try {
-      if (isFirebaseDemo) {
-        const storedFiles = localStorage.getItem('demo_files');
-        const allFiles: any[] = storedFiles ? JSON.parse(storedFiles) : [];
-        setPendingFiles(allFiles.filter(f => f.status === 'pending'));
-      } else {
-        const q = query(collection(db, 'resources'), where('status', '==', 'pending'));
-        const snap = await getDocs(q);
-        const list: any[] = [];
-        snap.forEach(d => list.push({ id: d.id, ...d.data() }));
-        setPendingFiles(list);
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
   useEffect(() => {
     loadDirectory();
-    loadPendingFiles();
-  }, [module, selectedDte, selectedBranch, selectedYear, selectedSubject, selectedCategory, pathStack, activeTab]);
-
-  const handleApprove = async (file: FileData) => {
-    setLoading(true);
-    try {
-      if (isFirebaseDemo) {
-        const stored = localStorage.getItem('demo_files');
-        const list: any[] = stored ? JSON.parse(stored) : [];
-        const updated = list.map(f => f.id === file.id ? { ...f, status: 'approved' } : f);
-        localStorage.setItem('demo_files', JSON.stringify(updated));
-        
-        const notifs = localStorage.getItem('demo_notifications') || '[]';
-        const notifList = JSON.parse(notifs);
-        notifList.push({
-          id: Date.now().toString(),
-          title: 'New Resource Available',
-          message: `${file.title || file.name} has been added to your library.`,
-          targetCollegeDte: file.targetCollegeDte || file.dteCode,
-          targetBranch: file.targetBranch || file.branch,
-          semester: file.semester || file.year,
-          createdAt: new Date().toISOString()
-        });
-        localStorage.setItem('demo_notifications', JSON.stringify(notifList));
-
-        setSuccess('Resource approved successfully.');
-      } else {
-        const { updateDoc, addDoc, collection } = await import('firebase/firestore');
-        await updateDoc(doc(db, 'resources', file.id), { status: 'approved' });
-        
-        await addDoc(collection(db, 'notifications'), {
-          title: 'New Resource Available',
-          message: `${file.title || file.name} has been added to your library.`,
-          targetCollegeDte: file.targetCollegeDte || file.dteCode,
-          targetBranch: file.targetBranch || file.branch,
-          semester: file.semester || file.year,
-          createdAt: new Date().toISOString()
-        });
-
-        setSuccess('Resource approved successfully.');
-      }
-      loadPendingFiles();
-    } catch (err) {
-      setError('Approval failed.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleReject = async (file: FileData) => {
-    if (!window.confirm("Reject and delete this resource permanently?")) return;
-    setLoading(true);
-    try {
-      if (isFirebaseDemo) {
-        const stored = localStorage.getItem('demo_files');
-        const list: any[] = stored ? JSON.parse(stored) : [];
-        const updated = list.filter(f => f.id !== file.id);
-        localStorage.setItem('demo_files', JSON.stringify(updated));
-        setSuccess('Resource rejected and removed.');
-      } else {
-        await deleteDoc(doc(db, 'resources', file.id));
-        setSuccess('Resource rejected and removed.');
-      }
-      loadPendingFiles();
-    } catch (err) {
-      setError('Rejection failed.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [module, selectedDte, selectedBranch, selectedYear, selectedSubject, selectedCategory, pathStack]);
 
   const handleCreateFolder = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -388,7 +319,7 @@ export default function ContentManagement() {
         localStorage.setItem('demo_folders', JSON.stringify(list));
         setSuccess('Folder created successfully in Demo DB.');
       } else {
-        const currentUser = auth.currentUser;
+        const currentUser = auth?.currentUser;
         if (!currentUser) throw new Error('Session expired.');
         await setDoc(doc(db, 'folders', folderId), {
           ...folderPayload,
@@ -509,81 +440,12 @@ export default function ContentManagement() {
         {error && <div className="mb-6 rounded-xl bg-red-50 p-4 text-sm font-semibold text-red-600">{error}</div>}
         {success && <div className="mb-6 rounded-xl bg-green-50 p-4 text-sm font-semibold text-green-600">{success}</div>}
 
-        <div className="mb-6 flex gap-4 border-b border-slate-200 pb-4">
-          <button
-            onClick={() => setActiveTab('approval')}
-            className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${
-              activeTab === 'approval' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-200'
-            }`}
-          >
-            Pending Approvals ({pendingFiles.length})
-          </button>
-          <button
-            onClick={() => setActiveTab('explorer')}
-            className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${
-              activeTab === 'explorer' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-600 hover:bg-slate-200'
-            }`}
-          >
-            Content Explorer
-          </button>
-        </div>
-
-        {activeTab === 'approval' && (
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h3 className="text-lg font-bold text-slate-800 mb-4">Pending Teacher Uploads</h3>
-            {pendingFiles.length === 0 ? (
-              <div className="text-center py-12 text-slate-400 font-medium">No pending uploads awaiting approval.</div>
-            ) : (
-              <div className="divide-y divide-slate-100 border border-slate-100 rounded-xl overflow-hidden">
-                {pendingFiles.map((file) => (
-                  <div key={file.id} className="flex flex-col md:flex-row items-start md:items-center justify-between p-4 bg-amber-50/30 hover:bg-amber-50/60 transition-colors">
-                    <div className="flex items-center gap-4 mb-4 md:mb-0">
-                      <div className="p-3 bg-amber-100 rounded-xl text-amber-600">
-                        <FileText className="h-6 w-6" />
-                      </div>
-                      <div>
-                        <h4 className="font-bold text-slate-800">{file.name || file.title}</h4>
-                        <div className="text-xs text-slate-500 mt-1 flex flex-wrap gap-2">
-                          <span className="font-semibold text-slate-700">Type:</span> {file.type}
-                          <span className="font-semibold text-slate-700 ml-2">Branch:</span> {file.branch || file.targetBranch}
-                          <span className="font-semibold text-slate-700 ml-2">Semester:</span> {file.semester}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex gap-2 w-full md:w-auto">
-                      <a href={file.url || file.fileUrl} target="_blank" rel="noopener noreferrer" className="flex-1 md:flex-none text-center px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-semibold text-slate-600 hover:bg-slate-50">Preview</a>
-                      <button onClick={() => handleApprove(file)} className="flex-1 md:flex-none px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-semibold hover:bg-green-700">Approve</button>
-                      <button onClick={() => handleReject(file)} className="flex-1 md:flex-none px-4 py-2 bg-red-100 text-red-600 rounded-lg text-sm font-semibold hover:bg-red-200">Reject</button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm mb-6">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+            <h3 className="text-lg font-bold text-slate-800">Browser</h3>
           </div>
-        )}
 
-        {activeTab === 'explorer' && (
-          <>
-            <div className="mb-6 flex gap-4 border-b border-slate-200 pb-4">
-              <button
-                onClick={() => { setModule('btech'); setPathStack([]); }}
-                className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${
-                  module === 'btech' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                Engineering Syllabus BTech/B.E
-              </button>
-              <button
-                onClick={() => { setModule('upsc'); setPathStack([]); }}
-                className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${
-                  module === 'upsc' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                UPSC Competitive Exam
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
           {/* Syllabus Filters */}
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm h-fit">
             <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-4">Syllabus Filters</h3>
@@ -631,13 +493,16 @@ export default function ContentManagement() {
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-500 mb-1.5">Syllabus Subject</label>
-                  <input
-                    type="text"
+                  <select
                     value={selectedSubject}
                     onChange={(e) => { setSelectedSubject(e.target.value); setPathStack([]); }}
                     className="w-full rounded-xl border border-slate-200 p-2.5 text-sm outline-none focus:border-blue-500"
-                    placeholder="e.g. Mathematics-I"
-                  />
+                  >
+                    {subjectsList.length === 0 && <option value="">No subjects available</option>}
+                    {subjectsList.map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
             ) : (
@@ -767,8 +632,7 @@ export default function ContentManagement() {
             </div>
           </div>
           </div>
-          </>
-        )}
+          </div>
       </main>
 
       {/* Create Folder Modal */}

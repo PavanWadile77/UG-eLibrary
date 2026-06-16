@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { collection, query, where, getDocs, updateDoc, doc, increment } from 'firebase/firestore';
 import { db, isFirebaseDemo, auth } from '../firebase';
 import Header from '../components/Header';
-import { BookOpen, Search, Filter, Download, Eye, Bookmark, FileText, PlayCircle } from 'lucide-react';
+import { RESOURCE_CATEGORIES } from '../constants';
+import { Search, BookOpen, Download, Bookmark, Eye, Filter, PlayCircle, FileText } from 'lucide-react';
 
 export default function StudentLibrary() {
   const [loading, setLoading] = useState(true);
@@ -11,9 +12,9 @@ export default function StudentLibrary() {
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
-  const [semesterFilter, setSemesterFilter] = useState('All');
-  const [subjectFilter, setSubjectFilter] = useState('All');
-  const [typeFilter, setTypeFilter] = useState('All');
+  const [semesterFilter, setSemesterFilter] = useState('Sem 1');
+  const [subjectFilter, setSubjectFilter] = useState('');
+  const [typeFilter, setTypeFilter] = useState('All Categories');
 
   // Dynamic Subjects
   const [subjectsList, setSubjectsList] = useState<string[]>([]);
@@ -26,7 +27,7 @@ export default function StudentLibrary() {
           const stored = localStorage.getItem('demo_user_profile');
           if (stored) profile = JSON.parse(stored);
         } else {
-          const u = auth.currentUser;
+          const u = auth?.currentUser;
           if (u) {
             const snap = await getDocs(query(collection(db, 'users'), where('userId', '==', u.uid)));
             if (!snap.empty) profile = snap.docs[0].data();
@@ -43,16 +44,14 @@ export default function StudentLibrary() {
           if (storedRes) {
             resData = JSON.parse(storedRes).filter((r: any) => 
               r.targetCollegeDte === profile.dteCode && 
-              r.targetBranch === profile.branch &&
-              r.status === 'approved' // Only show approved
+              r.targetBranch === profile.branch
             );
           }
         } else {
           const q = query(
             collection(db, 'resources'), 
             where('targetCollegeDte', '==', profile.dteCode),
-            where('targetBranch', '==', profile.branch),
-            where('status', '==', 'approved')
+            where('targetBranch', '==', profile.branch)
           );
           const snap = await getDocs(q);
           snap.forEach(d => resData.push({ id: d.id, ...d.data() }));
@@ -67,32 +66,47 @@ export default function StudentLibrary() {
     loadData();
   }, []);
 
-  // Update subjects based on selected semester
+  // Fetch subjects dynamically based on selected semester
   useEffect(() => {
-    const mockSubjects: Record<string, string[]> = {
-      'Sem 1': ['Engineering Mathematics I', 'Engineering Physics', 'Basic Electrical'],
-      'Sem 2': ['Engineering Mathematics II', 'Engineering Chemistry', 'Programming in C'],
-      'Sem 3': ['Data Structures', 'Discrete Mathematics', 'Digital Logic'],
-      'Sem 4': ['Operating Systems', 'Database Management', 'Computer Networks']
-    };
-    
-    if (semesterFilter !== 'All') {
-      setSubjectsList(mockSubjects[semesterFilter] || []);
-      setSubjectFilter('All');
-    } else {
+    if (!userProfile?.branch) {
       setSubjectsList([]);
-      setSubjectFilter('All');
+      setSubjectFilter('');
+      return;
     }
-  }, [semesterFilter]);
+    
+    if (isFirebaseDemo) {
+      const stored = localStorage.getItem('demo_subjects');
+      const list = stored ? JSON.parse(stored) : [];
+      const filtered = list.filter((s: any) => s.collegeDte === userProfile.dteCode && s.branch === userProfile.branch && s.semester === semesterFilter.replace('Sem ', ''));
+      const names = filtered.map((s: any) => s.name);
+      setSubjectsList(names);
+      setSubjectFilter(names.length > 0 ? names[0] : '');
+    } else {
+      const q = query(
+        collection(db, 'subjects'),
+        where('collegeDte', '==', userProfile.dteCode),
+        where('branch', '==', userProfile.branch),
+        where('semester', '==', semesterFilter.replace('Sem ', ''))
+      );
+      getDocs(q).then((snap) => {
+        const list = snap.docs.map(doc => doc.data().name);
+        setSubjectsList(list);
+        setSubjectFilter(list.length > 0 ? list[0] : '');
+      }).catch(err => {
+        console.error('Failed to load subjects', err);
+      });
+    }
+  }, [semesterFilter, userProfile]);
 
-  const handleAction = async (id: string, type: 'view' | 'download', url: string) => {
-    if (!isFirebaseDemo) {
-      const field = type === 'view' ? 'views' : 'downloads';
-      await updateDoc(doc(db, 'resources', id), { [field]: increment(1) });
+  const handleAction = async (e: React.MouseEvent | null, url: string) => {
+    console.log("HANDLE ACTION CALLED WITH URL:", url);
+    if (e) e.stopPropagation();
+    if (!url || !url.trim()) {
+      alert("Link not available");
+      return;
     }
-    if (type === 'view') {
-      window.open(url, '_blank');
-    }
+    // Temporarily disabled tracking to prevent Firebase permission errors
+    window.open(url, '_blank');
   };
 
   const toggleBookmark = (id: string) => {
@@ -104,7 +118,7 @@ export default function StudentLibrary() {
     if (searchQuery && !r.title.toLowerCase().includes(searchQuery.toLowerCase()) && !r.subject.toLowerCase().includes(searchQuery.toLowerCase())) return false;
     if (semesterFilter !== 'All' && r.semester !== semesterFilter) return false;
     if (subjectFilter !== 'All' && r.subject !== subjectFilter) return false;
-    if (typeFilter !== 'All' && r.type !== typeFilter) return false;
+    if (typeFilter !== 'All Categories' && r.type !== typeFilter) return false;
     return true;
   });
 
@@ -134,17 +148,15 @@ export default function StudentLibrary() {
               onChange={e => setSemesterFilter(e.target.value)}
               className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 outline-none focus:border-blue-500 font-medium text-slate-700 min-w-[120px]"
             >
-              <option value="All">All Semesters</option>
               {[1, 2, 3, 4, 5, 6, 7, 8].map(s => <option key={s} value={`Sem ${s}`}>Semester {s}</option>)}
             </select>
 
             <select
               value={subjectFilter}
               onChange={e => setSubjectFilter(e.target.value)}
-              disabled={semesterFilter === 'All'}
-              className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 outline-none focus:border-blue-500 font-medium text-slate-700 min-w-[140px] disabled:opacity-50"
+              className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 outline-none focus:border-blue-500 font-medium text-slate-700 min-w-[140px]"
             >
-              <option value="All">All Subjects</option>
+              {subjectsList.length === 0 && <option value="">No subjects available</option>}
               {subjectsList.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
 
@@ -153,11 +165,10 @@ export default function StudentLibrary() {
               onChange={e => setTypeFilter(e.target.value)}
               className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 outline-none focus:border-blue-500 font-medium text-slate-700 min-w-[140px]"
             >
-              <option value="All">All Formats</option>
-              <option>Notes</option>
-              <option>Question Papers</option>
-              <option>Syllabus</option>
-              <option>Video Links</option>
+              <option value="All Categories">All Categories</option>
+              {RESOURCE_CATEGORIES.map(cat => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
             </select>
           </div>
         </div>
@@ -175,24 +186,30 @@ export default function StudentLibrary() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredResources.map(resource => (
-              <div key={resource.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow group flex flex-col overflow-hidden">
+            {filteredResources.map(resource => {
+              const linkUrl = resource.fileUrl || resource.url || '';
+              return (
+              <div key={resource.id} onClick={() => {
+                console.log("CLICKED RESOURCE:", resource);
+                console.log("EXTRACTED LINK:", linkUrl);
+                handleAction(null, linkUrl);
+              }} className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow group flex flex-col overflow-hidden cursor-pointer">
                 <div className="p-6 flex-1">
                   <div className="flex justify-between items-start mb-4">
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
                       {resource.type}
                     </span>
-                    <button onClick={() => toggleBookmark(resource.id)} className="text-slate-400 hover:text-amber-500 transition-colors">
+                    <button onClick={(e) => { e.stopPropagation(); toggleBookmark(resource.id); }} className="text-slate-400 hover:text-amber-500 transition-colors z-10 relative">
                       <Bookmark className="h-5 w-5" />
                     </button>
                   </div>
                   <h3 className="font-bold text-slate-800 text-lg leading-tight mb-2 group-hover:text-blue-600 transition-colors">
-                    {resource.title}
+                    {resource.title || resource.name}
                   </h3>
                   <div className="space-y-1 mt-3">
                     <p className="text-xs font-medium text-slate-500">Subject: <span className="text-slate-700">{resource.subject}</span></p>
                     <p className="text-xs font-medium text-slate-500">Semester: <span className="text-slate-700">{resource.semester}</span></p>
-                    <p className="text-xs font-medium text-slate-500">By: <span className="text-slate-700">{resource.uploadedByName}</span></p>
+                    <p className="text-xs font-medium text-slate-500">By: <span className="text-slate-700">{resource.uploadedByName || 'Teacher'}</span></p>
                   </div>
                 </div>
                 <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
@@ -200,16 +217,16 @@ export default function StudentLibrary() {
                     <span className="flex items-center gap-1"><Eye className="h-3.5 w-3.5" /> {resource.views || 0}</span>
                     <span className="flex items-center gap-1"><Download className="h-3.5 w-3.5" /> {resource.downloads || 0}</span>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 relative z-10">
                     <button 
-                      onClick={() => handleAction(resource.id, 'view', resource.fileUrl)}
+                      onClick={(e) => handleAction(e, linkUrl)}
                       className="p-2 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                       title="Preview"
                     >
                       {resource.type === 'Video Links' ? <PlayCircle className="h-5 w-5" /> : <FileText className="h-5 w-5" />}
                     </button>
                     <button 
-                      onClick={() => handleAction(resource.id, 'download', resource.fileUrl)}
+                      onClick={(e) => handleAction(e, linkUrl)}
                       className="p-2 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                       title="Download"
                     >
@@ -218,7 +235,7 @@ export default function StudentLibrary() {
                   </div>
                 </div>
               </div>
-            ))}
+            )})}
           </div>
         )}
       </main>
