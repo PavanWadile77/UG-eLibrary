@@ -1,0 +1,27 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Helper check for authentication
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Cross-service Firestore checks
+    function getUserData() {
+      return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && (getUserData().role == 'admin');
+    }
+
+    match /{allPaths=**} {
+      // Anyone logged in can read notes, books, and lecture audio/video files
+      allow read: if isAuthenticated();
+      
+      // Only admins can upload and delete files
+      allow write: if isAdmin();
+    }
+  }
+}

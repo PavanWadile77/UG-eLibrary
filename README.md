@@ -1,129 +1,96 @@
-# UG-eLibrary
+# UG eLibrary
 
-UG eLibrary is a centralized digital learning platform designed for engineering students and faculty. It enables teachers to upload study materials and allows students to access resources based on their college, branch, semester, and subject.
-
-## 🌐 Live Website
-
-🔗 https://ug-elibrary.web.app/
+UG eLibrary is a production-ready, full-stack educational library ecosystem designed for colleges. It provides students, teachers, and administrators with a centralized digital space to organize, search, study, and moderate syllabus documents and UPSC preparations.
 
 ---
 
-## 🚀 Features
+## Workspace Layout
 
-### Student Portal
-- Access study materials instantly
-- Filter by Semester, Subject, and Category
-- Download Notes, Question Papers, Syllabus, E-books, Assignments, Lab Manuals, and Video Links
-- Competitive Exam Preparation Section
-- Search materials quickly
-- Mobile-friendly interface
+The repository is structured into isolated, cohesive packages:
 
-### Teacher Portal
-- Upload academic materials
-- Create new subjects dynamically
-- Manage uploaded resources
-- Delete uploaded materials
-- Edit profile information
-- Upload Competitive Exam resources
-
-### Admin Portal
-- Manage users
-- Manage colleges and branches
-- Send notifications
-- Content monitoring
+```
+d:/UG eLibrary/
+├── mobile_app/                 # Flutter Mobile Client (Android & iOS)
+├── admin_panel/                # React.js Web Admin Console (MUI, Vite)
+├── firebase/                   # Firebase Firestore Rules & Storage Configs
+├── .env.example                # Config template file
+├── README.md                   # System Architecture (This File)
+├── API_DOCUMENTATION.md        # Firestore Schema & API Specifications
+├── INSTALLATION_GUIDE.md       # Dev Environment Setup Instructions
+└── DEPLOYMENT_GUIDE.md         # Production Compilation & Deployment Guide
+```
 
 ---
 
-## 📚 Resource Categories
+## Technical Stack & Packages
 
-- Notes
-- Question Papers
-- Syllabus
-- Assignments
-- Lab Manuals
-- E-books
-- Video Links
+### 1. Flutter Mobile App (lib/)
+* **Architecture**: MVVM (Model-View-ViewModel) with structured data folders.
+* **State Management**: [Riverpod](https://pub.dev/packages/flutter_riverpod) for high-performance dependency injection.
+* **Database & Caching**: [Hive](https://pub.dev/packages/hive_flutter) for offline settings and local files metadata registry.
+* **PDF Engine**: [Syncfusion PDF Viewer](https://pub.dev/packages/syncfusion_flutter_pdfviewer).
+* **AI Engine**: [Google Gemini AI API](https://pub.dev/packages/google_generative_ai) for document summaries and MCQs quiz generation.
+* **Search Engine**: [Algolia Search SDK](https://pub.dev/packages/algolia).
 
----
+### 2. React Admin Panel
+* **Frontend Library**: React 18 with [Vite](https://vitejs.dev/) bundler.
+* **Design System**: Material UI (MUI) components library.
+* **Backend Bridge**: Firebase JS SDK (Authentication & DB).
 
-## 🎯 Competitive Exams
-
-Students can access materials for:
-
-- UPSC
-- MPSC
-- SSC
-- Banking
-- Railway
-- Defence
+### 3. Firebase Backend
+* **Auth**: OTP SMS Verification & Firebase sessions.
+* **DB**: Cloud Firestore.
+* **Storage**: Firebase Cloud Storage bucket.
+* **Push Notifications**: Firebase Cloud Messaging (FCM).
 
 ---
 
-## 🏫 College Support
+## System Architecture
 
-Supports Maharashtra Engineering Colleges using DTE College Codes.
+```mermaid
+graph TD
+    subgraph Clients
+        FlutterApp[Flutter Client App]
+        ReactAdmin[React Web Admin Console]
+    end
 
-Search supported by:
+    subgraph Search
+        AlgoliaIndex[(Algolia Search Index)]
+    end
 
-- DTE Code
-- College Name
-- Partial College Name
+    subgraph Firebase Backend
+        FirebaseAuth[Firebase Authentication]
+        Firestore[(Cloud Firestore DB)]
+        FirebaseStorage[(Firebase Cloud Storage)]
+        FCM[Cloud Messaging FCM]
+    end
 
-Examples:
+    subgraph AI Services
+        Gemini[Google Gemini AI API]
+    end
 
-- 5545
-- SVKM
-- Shirpur
-- COEP
-- VJTI
-- PCCOE
-
----
-
-## 🛠️ Tech Stack
-
-### Frontend
-- React.js
-- TypeScript
-- Tailwind CSS
-- Vite
-
-### Backend
-- Firebase Authentication
-- Firestore Database
-- Firebase Hosting
-
----
-
-## 📱 Responsive Design
-
-UG eLibrary is fully responsive and works on:
-
-- Android
-- iPhone
-- Tablet
-- Laptop
-- Desktop
+    %% Communications
+    FlutterApp -->|Phone OTP| FirebaseAuth
+    ReactAdmin -->|Secret Key & Pass| FirebaseAuth
+    
+    FlutterApp -->|Metadata CRUD| Firestore
+    ReactAdmin -->|Moderation & Approvals| Firestore
+    
+    FlutterApp -->|File uploads/downloads| FirebaseStorage
+    
+    FlutterApp -->|Indexing Queries| AlgoliaIndex
+    
+    FlutterApp -->|Summaries / Quiz| Gemini
+    
+    FCM -->|Push alerts| FlutterApp
+```
 
 ---
 
-## 🔐 Authentication
+## Key Modules & Flows
 
-- Google Sign-In
-- Role-Based Access Control
-- Student
-- Teacher
-- Administrator
-
----
-
-## 📂 Project Structure
-
-```text
-src/
-├── components/
-├── pages/
-├── data/
-├── hooks/
-├── firebase.ts
-└── App.tsx
+1. **Teacher Registration flow**: Teachers request account access. Upload capabilities remain locked until verified by an Administrator in the React Admin Console.
+2. **Infinite nested folders**: Approved teachers can organize study folders to arbitrary depths within subjects: `College -> Branch -> Year -> Subject -> Unit -> nested subfolders`.
+3. **Resumeable download manager**: Custom HTTP chunk downloader with pause/resume support using local temp byte buffers.
+4. **Instant lookup**: Global text querying optimized with client-side indexing.
+5. **AI Helper**: Automated note reading giving high-fidelity summaries and interactive quiz question sheets.

@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <!--
+    If you are serving your web app in a path other than the root, change the
+    href value below to reflect the base path you are serving from.
+
+    The path provided below has to start and end with a slash "/" in order for
+    it to work correctly.
+
+    For more details:
+    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
+
+    This is a placeholder for base href that will be replaced by the value of
+    the `--base-href` argument provided to `flutter build`.
+  -->
+  <base href="$FLUTTER_BASE_HREF">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="A new Flutter project.">
+
+  <!-- iOS meta tags & icons -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="UG eLibrary">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png"/>
+
+  <title>UG eLibrary</title>
+  <link rel="manifest" href="manifest.json">
+  <style>
+    body {
+      background-color: #2563eb;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      overflow: hidden;
+    }
+    .splash-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .splash-icon {
+      width: 120px;
+      height: 120px;
+      margin-bottom: 24px;
+      border-radius: 20px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    .spinner {
+      border: 4px solid rgba(255, 255, 255, 0.3);
+      border-top: 4px solid #ffffff;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="splash-container" id="splash">
+    <img src="icons/icon-192.png" alt="UG eLibrary Logo" class="splash-icon">
+    <div class="spinner"></div>
+  </div>
+  <script src="flutter_bootstrap.js" async></script>
+  <script>
+    window.addEventListener('load', function(ev) {
+      // The flutter_bootstrap.js will load the engine. We can hide the splash screen 
+      // after a short delay or let flutter's framework replace it.
+      // Usually Flutter inserts the canvas, but it's good practice to hide this div once loaded.
+      // We will listen for a custom event or just wait for the canvas to appear.
+      var observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+          if (mutation.addedNodes) {
+            mutation.addedNodes.forEach(function(node) {
+              if (node.tagName === 'FLUTTER-VIEW') {
+                var splash = document.getElementById('splash');
+                if (splash) {
+                  splash.style.display = 'none';
+                }
+                observer.disconnect();
+              }
+            });
+          }
+        });
+      });
+      observer.observe(document.body, { childList: true, subtree: true });
+    });
+  </script>
+</body>
+</html>
