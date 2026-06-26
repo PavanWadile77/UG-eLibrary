@@ -1,5 +1,8 @@
 # UG eLibrary
 
+Link: ug-elibrary.in
+      ug-elibrary.wep.app
+
 UG eLibrary is a production-ready, full-stack educational library ecosystem designed for colleges. It provides students, teachers, and administrators with a centralized digital space to organize, search, study, and moderate syllabus documents and UPSC preparations.
 
 ---
