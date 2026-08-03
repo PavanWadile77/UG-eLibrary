@@ -129,7 +129,7 @@ export default function App() {
   }, []);
 
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={import.meta.env.BASE_URL}>
       <Routes>
         {/* Auth page */}
         <Route path="/login" element={<Login />} />
