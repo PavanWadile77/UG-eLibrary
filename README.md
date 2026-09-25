@@ -6,14 +6,14 @@ A digital learning ecosystem designed to help **students, teachers, and academic
 🌐 **Firebase Deployment:** https://ug-elibrary.web.app/
 
 ## 🎯 Vision
-UG eLibrary brings notes, study materials, previous-year papers, syllabus resources, and competitive-exam content into a structured digital learning platform.
+Bring notes, study materials, previous-year papers, syllabus resources, and competitive-exam content into one structured digital learning platform.
 
 ## ✨ Key Features
 - Student and teacher workflows
 - College → Branch → Year organization
 - Digital notes and study materials
 - Teacher resource management
-- Admin moderation and management
+- Admin moderation
 - Search and resource discovery
 - Study history / recently visited resources
 - Competitive-exam resources
@@ -35,14 +35,12 @@ UG-eLibrary/
 **Flutter · Dart · React · TypeScript · Vite · Firebase Authentication · Firestore · Storage**
 
 ## ▶️ Development
-Admin panel:
 ```bash
 cd admin_panel
 npm install
 npm run build
 ```
 
-Flutter app:
 ```bash
 cd mobile_app
 flutter pub get
