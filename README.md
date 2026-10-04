@@ -1,5 +1,14 @@
 # UG eLibrary 📚
 
+<div align="center">
+
+**EdTech • Full-Stack • Cloud**
+
+<img src="https://img.shields.io/badge/Firebase-FFCA28?style=for-the-badge&logo=firebase&logoColor=black">
+
+</div>
+
+
 A digital learning ecosystem designed to help **students, teachers, and academic administrators** discover, organize, manage, and access educational resources.
 
 🌐 **Live:** https://ug-elibrary.in/  
@@ -57,3 +66,17 @@ Use environment/configuration files for service credentials. Never commit privat
 
 ## 👨‍💻 Author
 **Pavan Wadile** · B.Tech Information Technology Student
+
+## 🔧 Engineering Focus
+
+Academic resource management, student/teacher workflows, Firebase services and PWA-oriented delivery.
+
+---
+
+<div align="center">
+
+**Pavan Wadile · B.Tech Information Technology**
+
+[GitHub](https://github.com/PavanWadile77)
+
+</div>
